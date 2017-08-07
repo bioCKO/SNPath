@@ -1,0 +1,31 @@
+\begin{thebibliography}{1}
+
+\bibitem{Chen10}
+Lin~S. Chen, Carolyn~M. Hutter, John~D. Potter, Yan Liu, Ross~L. Prentice,
+  Ulrike Peters, and Li~Hsu.
+\newblock Insights into colon cancer etiology via a regularized approach to
+  gene set analysis of gwas data.
+\newblock {\em The American Journal of Human Genetics}, 86(6):860--871, 2010.
+
+\bibitem{Holmans09}
+P.~Holmans, E.~K. Green, J.~S. Pahwa, M.~A. Ferreira, S.~M. Purcell, P.~Sklar,
+  {the Wellcome Trust Case-Control Consortium}, M.~J. Owen, M.~C. {O'Donovan},
+  and N.~Craddock.
+\newblock Gene ontology analysis of gwa study data sets provides insights into
+  the biology of bipolar disorder.
+\newblock {\em The American Journal of Human Genetics}, 85(1):13--24, 2009.
+
+\bibitem{Purcell07}
+S.~M. Purcell, B.~Neale, K.~Todd-Brown, L.~Thomas, M.~A. Ferreira, D.~Bender,
+  J.~Maller, P.~Sklar, P.~I. {de Bakker}, and {M. J. Daly {\em et al.}}
+\newblock Plink: a toolset for whole-genome association and population-based
+  linkage analysis.
+\newblock {\em The American Journal of Human Genetics}, 81:559--575, 2007.
+
+\bibitem{WB07}
+K.~Wang, M.~Li, and M.~Bucan.
+\newblock Pathway-based approaches for analysis of genomewide association
+  studies.
+\newblock {\em The American Journal of Human Genetics}, 81(6):1278--1283, 2007.
+
+\end{thebibliography}

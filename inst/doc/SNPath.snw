@@ -1,0 +1,228 @@
+% \VignetteIndexEntry{SNPath}
+% \VignetteKeywords{pathway,snp} 
+\documentclass[11pt]{article}
+
+\usepackage{epsfig}
+\usepackage{latexsym}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{amsxtra}
+\usepackage{graphicx,subfigure}
+\usepackage{vmargin}
+
+\newcommand{\Robject}[1]{{\texttt{#1}}}
+\newcommand{\Rfunction}[1]{{\texttt{#1}}}
+\newcommand{\Rpackage}[1]{{\texttt{#1}}}
+\newcommand{\Rclass}[1]{{\texttt{#1}}}
+\newcommand{\Rmethod}[1]{{\texttt{#1}}}
+\newcommand{\Rfunarg}[1]{{\texttt{#1}}}
+
+\parindent 0in
+\setpapersize{USletter}
+\setmarginsrb{1truein}{0.5truein}{1truein}{0.5truein}{16pt}{30pt}{0pt}{20truept}
+\setlength{\emergencystretch}{2em}
+\usepackage{Sweave}
+\begin{document}
+
+\title{Bioconductor's SNPath package}
+\author{ TBD\\
+Fred Hutchinson Cancer Research Center\\
+email: \texttt{TBD}}
+
+\maketitle
+\bibliographystyle{plain}
+\tableofcontents
+
+
+\section{Overview}
+Genome-wide association studies (GWAS) assess the association between individual SNPs and disease risk, and have successfully identified susceptibility loci for various complex diseases. In addition, many
+methods have been proposed to evaluate the association between disease risk and a set of SNPs that belongs to functional gene sets or pathways. The \Rpackage{SNPath} package contains four different algorithms in the literature: \Rfunction{grass} \cite{Chen10}, \Rfunction{gseaSnp} \cite{WB07}, \Rfunction{plinkSet} \cite{Purcell07} and \Rfunction{aligator} \cite{Holmans09}. Users can use any one of them to identify pathways that are associated with disease risk; meanwhile, this package provides a nice and convenient platform for comparison of different algorithms as well.\\
+
+This document provides a tutorial for using the \texttt{SNPath} package, as well as detailed description of each algorithm in this package. Specifically, the function \Rfunction{grass} calculate the pvalues for \textit{a prior} defined pathways (sets of genes), based on the \textit{Gene set Ridge regression in ASsociation Studies} (GRASS) algorithm \cite{Chen10}. The algorithm summarizes the genetic structure using singular value decomposition for each gene as eigenSNPs and uses a novel form of regularized regression technique, termed group ridge regression, to select representative eigenSNPs for each gene and assess their joint association with disease risk.  The function \Rfunction{gseaSnp} implements the phenotype-permution algorithm proposed in Wang \textit{et al.} (2007) \cite{WB07}. This algorithm modifies the gene-set enrichment analysis approach for expression studies and is considered the first approach for gene-set enrichment analysis in association studies. The function \Rfunction{plinkSet} implements the set-based tests in the popular whole genome association analysis toolset, PLINK software. The function \Rfunction{aligator} performs a simple and fast ALIGATOR algorithm \cite{Holmans09}, which is a method for testing overrepresentation of pathways, in lists of significant SNPs from GWAS. With a simulated example, we will show how to use each function with various options.
+
+
+\section{Simulated Data}
+
+We simulated a simple data set to demonstrate the use of functions with various options in the \Rpackage{SNPath} package. The simulated data is also included in the package as the dataset \texttt{simDat}. It consists of 5 elements. A SNP data \texttt{snpDat} consists of the genotype data for 300 SNPs and 1000 samples (500 cases and 500 controls). Each row represents 1 SNP and is coded in the trinary fashion (0,1,2 corresponding to homozygotes for the major allele, heterozygotes, and homozygotes for the minor allele, respectively). \texttt{snp.info} is a 300 by 3 matrix, with each row listing the name, chromosome and genome location (base pair) of a SNP. \texttt{gene.info} is a 20 by 4 matrix showing the genome information for 20 genes. The four columns are gene name, chromosome number, start and end coordinate of the gene (start<end). \texttt{y} is the case control status for the 1000 samples, with cases coded as 1 and controls coded as 0. \texttt{sim.pathway} is a list of gene names in two simulated pathways with 5 and 10 genes, respectively.
+
+One can load the data set by \texttt{data(simDat)}.
+
+\begin{Schunk}
+\begin{Sinput}
+> library(SNPath)
+> data(simDat)
+> ls()
+\end{Sinput}
+\begin{Soutput}
+[1] "snpDat" "snp.info" "gene.info" "sim.pathway" "y"
+\end{Soutput}
+\begin{Sinput}
+> dim(snpDat)
+\end{Sinput}
+\begin{Soutput}
+[1] 300  1000
+\end{Soutput}
+\begin{Sinput}
+> dim(snp.info)
+\end{Sinput}
+\begin{Soutput}
+[1] 300  3
+\end{Soutput}
+\end{Schunk}
+
+\section{The \Rfunction{grass} function}
+
+The \Rfunction{grass} function calculates the p-values of disease-association for pathways by
+the algorithm GRASS \cite{Chen10}.  GRASS summarizes the genetic structure by SVD for each gene as eigenSNPs and
+uses a novel form of regularized regression technique, termed group ridge regression, to select representative eigenSNPs for each gene and assess their joint association with disease risk. \\
+
+In the following example, \Rfunction{grass} function estimates p-values for two simulated pathways. Because most of the pathway analysis algorithms are nonparametric and requires a large number of permutations (or resamplings). It is highly recommended that one uses parallel computing to make best use of all available resources. Please see the R library \Rfunction{snow} and \Rfunction{Rmpi} for more information on parallel computing. If \texttt{cl=NULL}, clusters are not provided, all computation will be done on the local computer. If \texttt{cl} is generated, please also load the \Rfunction{SNPath} library on each cluster.\\
+
+The following code loaded the simulated data, generated two clusters on the local computer, and loaded the \Rfunction{SNPath} library on each clusters. The example implemented the unweighted analysis of GRASS and obtained the pvalues for the two simulated pathways. In this example, \texttt{gene.def="ref"}, i.e., relative gene definition is used, with default distance \texttt{k=1}. That is, a SNP is assigned to the gene it physically located in, if it does, and one nearest gene from either end of gene (or SNP).
+
+\begin{Schunk}
+\begin{Sinput}
+> library(SNPath)
+> data(simDat)
+> library(snow)
+> cl <- makeCluster(c("localhost","localhost"), type = "SOCK")
+> clusterEvalQ(cl, {
+>    library(SNPath)
+> })
+> path.pval <- grass(cl=cl, snp.dat=snpDat, snp.info=snp.info, gene.info=gene.info,
+                   gene.set=sim.pathway, y=y, gene.def="rel", B=1000,
+                   nominal.p=FALSE)
+> path.pval
+\end{Sinput}
+\begin{Soutput}
+path1 path2
+0.622 0.356
+\end{Soutput}
+\end{Schunk}
+
+
+The option \texttt{nominal.p} indicates if p-values should be calculated based on normal
+approximation of null statistics. By default, it is set to be \texttt{FALSE}, and p-values are calculated
+non-parametrically by counting the frequency of null pathway statistics exceeding the observed one.
+When computation load is heavy, one can use a small number of permutations, \texttt{B}, and set \texttt{nominal.p = TRUE}.
+\begin{Schunk}
+\begin{Sinput}
+> path.pval <- grass(cl=cl, snp.dat=snpDat, snp.info=snp.info, gene.info=gene.info,
+                   gene.set=sim.pathway, y=y, gene.def="rel", nominal.p=TRUE)
+> path.pval
+\end{Sinput}
+\begin{Soutput}
+    path1     path2
+0.7612674 0.4150053
+\end{Soutput}
+\end{Schunk}
+
+
+\section{The \Rfunction{gseaSnp} function}
+
+The function \Rfunction{gseaSnp} calculates the p-value of disease-association for pathways by the algorithm proposed in Wang \textit{et al.} (2007) \cite{WB07}. Briefly, the idea behind the algorithm is: first assign SNPs to genes based on absolute or relative genome location, and use the top individual SNP association statistic within the gene as the statistic of the gene and rank all the genes by significance. The algorithm then compares the distribution of the ranks of genes from a given pathway to that of the remaining genes via a weighted Kolmogorov-Smirnov test, with greater weight given to genes with more extreme statistic values. To compute the p-values for pathways of interest, one can permute the case/control status and repeat the above procedure to obtain null pathway statistics, and count the frequency of null statistics exceeding the observed ones.\\
+
+There are many ways to calculate the individual SNP association statistics. Here we provide two options: the default option is to use logistic regression by setting \texttt{snp.method = "logiReg"},  and if \texttt{weights} are provided, weighted logistic regression will be performed (requires loading the R library \Rfunction{Zelig} and \Rfunction{survey}). Another option is to use chi-square test by setting \texttt{snp.method = "chiSq"}.\\
+
+Here we show an example of using logistic regression without weight. In this example, SNPs within 5 base pair of either end of a gene are assigned to the gene (\texttt{gene.def="abs"} and \texttt{dist=5}).
+\begin{Schunk}
+\begin{Sinput}
+> path.pval <- gseaSnp(cl=cl, snp.dat=snpDat, snp.info=snp.info,
+                    gene.info=gene.info, gene.set=sim.pathway, y=y,
+                    snp.method="logiReg", gene.def="abs",dist=5)
+> path.pval
+\end{Sinput}
+\begin{Soutput}
+path1 path2
+0.125 0.865
+\end{Soutput}
+\end{Schunk}
+
+
+If sampling weights are available, one can also specify the \texttt{weights} option to perform a weighted analysis. In the following example, we use a equal weight on each sample, and should ideally get the same results as above. The small difference between the two p-values for \texttt{path1} is due to rounding error.
+\begin{Schunk}
+\begin{Sinput}
+> path.pval <- gseaSnp(cl=cl, snp.dat=snpDat, snp.info=snp.info,
+                 gene.info=gene.info,gene.set=sim.pathway, y=y,
+                 weights=rep(1,length(y)),
+                 snp.method="logiReg", gene.def="abs",dist=5)
+> path.pval
+\end{Sinput}
+\begin{Soutput}
+path1 path2
+0.120 0.865
+\end{Soutput}
+\end{Schunk}
+
+Also one can use chi-square test to assess individual SNP associations, by setting \texttt{snp.method="chiSq"}.
+\begin{Schunk}
+\begin{Sinput}
+> path.pval <- gseaSnp(cl=cl, snp.dat=snpDat, snp.info=snp.info,
+                 gene.info=gene.info, gene.set=sim.pathway, y=y,
+                 snp.method="chiSq", gene.def="abs",dist=5)
+> path.pval
+\end{Sinput}
+\begin{Soutput}
+path1 path2
+0.345 0.725
+\end{Soutput}
+\end{Schunk}
+
+\section{The \Rfunction{plinkSet} function}
+
+\Rfunction{PLINK} is a popular software for analyzing whole genome association studies \cite{Purcell07}. It provides an option to perform SNP set-based tests. We implement the idea in \texttt{R} to facilitate users who want to compare different pathway analysis methods.\\
+
+This algorithm works as follows:
+\begin{enumerate}
+\item Assign SNPs to each pathway of interest.
+\item Perform standard single SNP analysis (logistic regression or chi-square test).
+\item For each set, select the top ``independent" SNPs with p-values below \texttt{snp.pcut}. The best SNP is selected first; subsequent SNPs are selected in order of descreasing statistical significance, after removing SNPs in linkage disequilibrium ($r^2$ above \texttt{snp.r2cut}) with previously selected SNPs.
+\item The statistic for each pathway is calculated as the mean of these single SNP statistics from the top ``independent" SNPs within the pathway.
+\item Permute the case/control status \texttt{y} B times, keeping SNP dataset unchanged.
+\item For each permuted dataset, repeat steps 2 to 4 above.
+\item The p-value for a pathway is the number of times the permuted pathway statistic exceeds the observed one.
+\end{enumerate}
+
+In the following example, we use the set-based tests in PLINK to calculate the p-values for the two simulated pathway.
+Again we use logistic regression to perform standard single SNP analysis. SNPs with p-values below 0.05 are retained,
+and their pairwise $r^2$s are less than 0.5.
+\begin{Schunk}
+\begin{Sinput}
+> path.pval <- plinkSet(cl=cl, snp.dat=snpDat, snp.info=snp.info,
+                 gene.info=gene.info, gene.set=sim.pathway, y=y,
+                 snp.method="logiReg", gene.def="abs", dist=10,
+                 snp.pcut=0.05, snp.r2cut=0.5)
+> path.pval
+\end{Sinput}
+\begin{Soutput}
+path1 path2
+ 0.56  0.44
+\end{Soutput}
+\end{Schunk}
+
+\section{The \Rfunction{aligator} function}
+
+The \Rfunction{aligator} function implements the ALIGATOR algorithm \cite{Holmans09}. The algorithm
+takes the individual SNP association p-values as input and use a preselected p-value threshold \texttt{snp.pcut} to define a set of significantly associated SNPs. It then counts the number of genes in a pathway that contains these SNPs, with each gene counted only once, regardless of the number of significant SNPs in the gene. Instead of permuting phenotypes to establish the null distribution as in PLINK, ALIGATOR uses resampling of SNPs. Thus it only requires a p-value or summary statistic from each SNP as input, and can be used when individual level SNP data are not available.\\
+
+In the following example, we calculated the SNP association p-values by logistic regression, using the function \Rfunction{calc.fun}. We defined SNPs with p-values less than 0.05 as significant SNPs (\texttt{snp.pcut=0.05}) and performed ALIGATOR on the data.
+
+\begin{Schunk}
+\begin{Sinput}
+> pval <- calc.fun(cl=cl, snp.dat=snpDat, y=y, snp.method="logiReg")$pval
+
+> path.pval <- aligator(cl=cl, snp.info=snp.info, gene.info=gene.info,
+                   gene.set=sim.pathway, snp.pval=pval, gene.def="rel", snp.pcut=0.05)
+> path.pval
+\end{Sinput}
+\begin{Soutput}
+path1 path2
+0.5686 0.9008
+\end{Soutput}
+\end{Schunk}
+
+\bibliography{SNPath}
+
+
+\end{document}

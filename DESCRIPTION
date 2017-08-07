@@ -1,0 +1,11 @@
+Package: SNPath
+Version: 0.1
+Date: 2010-07-26
+Title: Algorithms for pathway analysis using SNP data
+Author: Lin S. Chen <lche2@fhcrc.org>
+Maintainer: Lin S. Chen <lche2@fhcrc.org>
+Depends: R (>= 1.8.0), corpcor, snow, Zelig, survey
+Description: The SNPath package contains algorithms for evaluating the association between disease risk and a set of SNPs that belongs to the same functional gene set or pathway. The package includes the newly developed regularized approach GRASS (Chen et al. 2010) and three alternative algorithms in the literature: Wang et al. (2007), PLINK set options (Purcell et al. 2007) and ALIGATOR (Holmans et al. 2009). 
+License: GPL (>= 2)
+URL: http://www.r-project.org
+Packaged: 2010-10-13 21:40:18 UTC; lche2
